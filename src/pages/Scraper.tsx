@@ -4,24 +4,110 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, Play, Pause, Settings, Package, DollarSign, TrendingUp, Loader2 } from "lucide-react"
+import { Store, Search, Package, ExternalLink, Loader2, CheckCircle, ArrowRight, Copy } from "lucide-react"
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://dropflow-production.up.railway.app';
+
+interface ScrapedTitle {
+  title: string;
+  amazonUrl?: string;
+  amazonTitle?: string;
+  matchScore?: number;
+}
 
 export default function Scraper() {
-  const [isRunning, setIsRunning] = useState(false)
-  const [keyword, setKeyword] = useState("")
+  const [storeUrl, setStoreUrl] = useState("")
+  const [maxPages, setMaxPages] = useState("20")
+  const [isScrapingStore, setIsScrapingStore] = useState(false)
+  const [isMatchingAmazon, setIsMatchingAmazon] = useState(false)
+  const [scrapedTitles, setScrapedTitles] = useState<ScrapedTitle[]>([])
+  const [storeName, setStoreName] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [matchResults, setMatchResults] = useState<{matched: number; total: number; matchRate: number} | null>(null)
 
-  const scrapedProducts = [
-    { id: 1, name: "Wireless Earbuds Noise Cancelling", price: 45.99, amazonPrice: 32.00, profit: 13.99, rating: 4.5, reviews: 1234 },
-    { id: 2, name: "Bluetooth Speaker Waterproof", price: 29.99, amazonPrice: 18.00, profit: 11.99, rating: 4.3, reviews: 892 },
-    { id: 3, name: "Smart Watch Fitness Tracker", price: 89.99, amazonPrice: 52.00, profit: 37.99, rating: 4.7, reviews: 2341 },
-    { id: 4, name: "Phone Stand Adjustable", price: 15.99, amazonPrice: 6.50, profit: 9.49, rating: 4.4, reviews: 567 },
-    { id: 5, name: "USB C Hub Multiport Adapter", price: 35.99, amazonPrice: 19.00, profit: 16.99, rating: 4.6, reviews: 1089 },
-  ]
+  async function handleScrapeStore() {
+    if (!storeUrl) return
+    
+    setIsScrapingStore(true)
+    setError(null)
+    setScrapedTitles([])
+    setMatchResults(null)
+    
+    try {
+      const response = await fetch(`${API_URL}/api/scraper/ebay-store`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          store_url: storeUrl,
+          max_pages: parseInt(maxPages) || 20
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to scrape store')
+      }
+      
+      setStoreName(data.store_name)
+      setScrapedTitles(data.titles.map((title: string) => ({ title })))
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Scraping failed')
+    } finally {
+      setIsScrapingStore(false)
+    }
+  }
 
-  const stats = {
-    productsFound: 156,
-    avgProfit: 18.45,
-    topCategory: "Electronics",
+  async function handleMatchAmazon() {
+    if (scrapedTitles.length === 0) return
+    
+    setIsMatchingAmazon(true)
+    setError(null)
+    
+    try {
+      const response = await fetch(`${API_URL}/api/scraper/match-amazon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          titles: scrapedTitles.map(t => t.title),
+          domain: 'com.au'
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to match products')
+      }
+      
+      // Update titles with match results
+      setScrapedTitles(data.results.map((r: any) => ({
+        title: r.ebay_title,
+        amazonUrl: r.amazon_url,
+        amazonTitle: r.amazon_title,
+        matchScore: r.match_score
+      })))
+      
+      setMatchResults({
+        matched: data.matched,
+        total: data.total,
+        matchRate: data.match_rate
+      })
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Matching failed')
+    } finally {
+      setIsMatchingAmazon(false)
+    }
+  }
+
+  function copyAmazonLinks() {
+    const links = scrapedTitles
+      .filter(t => t.amazonUrl)
+      .map(t => t.amazonUrl)
+      .join('\n')
+    navigator.clipboard.writeText(links)
   }
 
   return (
@@ -29,174 +115,187 @@ export default function Scraper() {
       <Navbar />
       
       <main className="pt-20 pb-8 px-4">
-        <div className="container mx-auto">
+        <div className="container mx-auto max-w-6xl">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">Product Scraper</h1>
-              <p className="text-muted-foreground">Find profitable products to sell</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-              <Button 
-                variant={isRunning ? "destructive" : "hero"}
-                className="gap-2"
-                onClick={() => setIsRunning(!isRunning)}
-              >
-                {isRunning ? (
-                  <>
-                    <Pause className="h-4 w-4" />
-                    Stop Scraper
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4" />
-                    Start Scraper
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold">Smart Scraper</h1>
+            <p className="text-muted-foreground">Scrape competitor eBay stores and find matching Amazon products</p>
           </div>
 
-          {/* Stats */}
-          <div className="grid gap-4 md:grid-cols-3 mb-8">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-lg bg-primary/10">
-                    <Package className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Products Found</p>
-                    <p className="text-2xl font-bold">{stats.productsFound}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-lg bg-green-500/10">
-                    <DollarSign className="h-5 w-5 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Avg. Profit</p>
-                    <p className="text-2xl font-bold">${stats.avgProfit}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-lg bg-purple-500/10">
-                    <TrendingUp className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Top Category</p>
-                    <p className="text-2xl font-bold">{stats.topCategory}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Search */}
+          {/* Step 1: Scrape eBay Store */}
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Search Criteria</CardTitle>
-              <CardDescription>Configure what products to search for</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="space-y-2">
-                  <Label>Keyword</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="e.g., wireless earbuds" 
-                      className="pl-10"
-                      value={keyword}
-                      onChange={(e) => setKeyword(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Min Profit</Label>
-                  <Input type="number" placeholder="$10" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Price</Label>
-                  <Input type="number" placeholder="$100" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Min Rating</Label>
-                  <Input type="number" placeholder="4.0" step="0.1" max="5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Results */}
-          <Card>
-            <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                {isRunning && <Loader2 className="h-5 w-5 animate-spin" />}
-                Scraped Products
+                <Store className="h-5 w-5" />
+                Step 1: Scrape eBay Store
               </CardTitle>
               <CardDescription>
-                {isRunning ? "Searching for profitable products..." : "Products matching your criteria"}
+                Enter an eBay store URL to extract all their product titles
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Product</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Sell Price</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Cost</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Profit</th>
-                      <th className="text-center py-3 px-4 font-medium text-muted-foreground">Rating</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Reviews</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scrapedProducts.map((product) => (
-                      <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                              <Package className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                            <span className="font-medium">{product.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right">${product.price.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-muted-foreground">${product.amazonPrice.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-green-600 font-medium">${product.profit.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center gap-1">
-                            ⭐ {product.rating}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right text-muted-foreground">{product.reviews.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right">
-                          <Button variant="outline" size="sm">
-                            Import
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="md:col-span-3 space-y-2">
+                    <Label>eBay Store URL</Label>
+                    <Input
+                      placeholder="https://www.ebay.com.au/str/storename"
+                      value={storeUrl}
+                      onChange={(e) => setStoreUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Max Pages</Label>
+                    <Input
+                      type="number"
+                      placeholder="20"
+                      value={maxPages}
+                      onChange={(e) => setMaxPages(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <Button 
+                  variant="hero" 
+                  onClick={handleScrapeStore}
+                  disabled={!storeUrl || isScrapingStore}
+                >
+                  {isScrapingStore ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Scraping Store...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Scrape Store
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* Error Display */}
+          {error && (
+            <Card className="mb-6 border-destructive">
+              <CardContent className="py-4">
+                <p className="text-destructive">{error}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Results */}
+          {scrapedTitles.length > 0 && (
+            <>
+              {/* Step 2: Match to Amazon */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowRight className="h-5 w-5" />
+                    Step 2: Find Amazon Matches
+                  </CardTitle>
+                  <CardDescription>
+                    Search Amazon for matching products (processes up to 100 titles)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        Found <span className="font-bold text-foreground">{scrapedTitles.length}</span> products from {storeName}
+                      </p>
+                      {matchResults && (
+                        <p className="text-sm text-green-600">
+                          Matched {matchResults.matched}/{matchResults.total} ({matchResults.matchRate}%)
+                        </p>
+                      )}
+                    </div>
+                    <Button 
+                      variant="hero" 
+                      onClick={handleMatchAmazon}
+                      disabled={isMatchingAmazon || scrapedTitles.length === 0}
+                    >
+                      {isMatchingAmazon ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Matching...
+                        </>
+                      ) : (
+                        <>
+                          <Package className="h-4 w-4 mr-2" />
+                          Find Amazon Matches
+                        </>
+                      )}
+                    </Button>
+                    {matchResults && matchResults.matched > 0 && (
+                      <Button variant="outline" onClick={copyAmazonLinks}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Links
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Products List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Scraped Products ({scrapedTitles.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-[600px] overflow-y-auto space-y-2">
+                    {scrapedTitles.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`p-3 rounded-lg border ${item.amazonUrl ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-muted/30'}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{item.title}</p>
+                            {item.amazonTitle && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                → {item.amazonTitle} ({item.matchScore}% match)
+                              </p>
+                            )}
+                          </div>
+                          {item.amazonUrl ? (
+                            <a 
+                              href={item.amazonUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-green-600 hover:underline"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : item.matchScore !== undefined ? (
+                            <span className="text-xs text-muted-foreground">No match</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {/* Empty State */}
+          {scrapedTitles.length === 0 && !isScrapingStore && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                  <Store className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">No products scraped yet</p>
+                  <p className="text-sm text-center max-w-md">
+                    Enter an eBay store URL above to scrape their product catalog, 
+                    then match those products to Amazon listings.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>
