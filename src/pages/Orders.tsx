@@ -1,18 +1,10 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { ShoppingCart, Search, RefreshCw, Eye, Truck, Package } from "lucide-react"
-
-const mockOrders = [
-  { id: "ORD-2024-001", date: "2024-01-15", customer: "John Doe", email: "john@example.com", items: 2, total: 129.98, status: "Shipped", tracking: "1Z999AA10123456784" },
-  { id: "ORD-2024-002", date: "2024-01-15", customer: "Sarah Miller", email: "sarah@example.com", items: 1, total: 199.99, status: "Processing", tracking: null },
-  { id: "ORD-2024-003", date: "2024-01-14", customer: "Mike Roberts", email: "mike@example.com", items: 3, total: 89.97, status: "Delivered", tracking: "1Z999AA10123456785" },
-  { id: "ORD-2024-004", date: "2024-01-14", customer: "Lisa Kim", email: "lisa@example.com", items: 1, total: 24.99, status: "Pending", tracking: null },
-  { id: "ORD-2024-005", date: "2024-01-13", customer: "Tom Harris", email: "tom@example.com", items: 4, total: 259.96, status: "Shipped", tracking: "1Z999AA10123456786" },
-  { id: "ORD-2024-006", date: "2024-01-13", customer: "Emma Wilson", email: "emma@example.com", items: 2, total: 84.98, status: "Delivered", tracking: "1Z999AA10123456787" },
-]
+import { ShoppingCart, Search, RefreshCw, Eye, Truck, Package, Loader2 } from "lucide-react"
+import { getOrders, type Order } from "@/lib/api"
 
 const statusColors: Record<string, string> = {
   Pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -24,18 +16,38 @@ const statusColors: Record<string, string> = {
 
 export default function Orders() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredOrders = mockOrders.filter(order =>
-    order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.email.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    loadOrders()
+  }, [])
+
+  async function loadOrders() {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getOrders()
+      setOrders(data.items || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load orders')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredOrders = orders.filter(order =>
+    order.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.customer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const stats = {
-    total: mockOrders.length,
-    pending: mockOrders.filter(o => o.status === "Pending").length,
-    processing: mockOrders.filter(o => o.status === "Processing").length,
-    shipped: mockOrders.filter(o => o.status === "Shipped").length,
+    total: orders.length,
+    pending: orders.filter(o => o.status === "Pending").length,
+    processing: orders.filter(o => o.status === "Processing").length,
+    shipped: orders.filter(o => o.status === "Shipped").length,
   }
 
   return (
@@ -50,7 +62,7 @@ export default function Orders() {
               <h1 className="text-3xl font-bold">Orders</h1>
               <p className="text-muted-foreground">Track and manage customer orders</p>
             </div>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={loadOrders}>
               <RefreshCw className="h-4 w-4" />
               Sync Orders
             </Button>
@@ -127,62 +139,101 @@ export default function Orders() {
             </CardContent>
           </Card>
 
+          {/* Loading State */}
+          {loading && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin mb-4" />
+                  <p>Loading orders...</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <Card className="border-destructive">
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center justify-center text-destructive">
+                  <p className="mb-4">{error}</p>
+                  <Button variant="outline" onClick={loadOrders}>Try Again</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && orders.length === 0 && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                  <ShoppingCart className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">No orders yet</p>
+                  <p>Orders will appear here once customers start buying</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Orders Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{filteredOrders.length} Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Order ID</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Customer</th>
-                      <th className="text-center py-3 px-4 font-medium text-muted-foreground">Items</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total</th>
-                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                      <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.map((order) => (
-                      <tr key={order.id} className="border-b last:border-0 hover:bg-muted/50">
-                        <td className="py-3 px-4 font-mono text-sm font-medium">{order.id}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{order.date}</td>
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="font-medium">{order.customer}</p>
-                            <p className="text-sm text-muted-foreground">{order.email}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center">{order.items}</td>
-                        <td className="py-3 px-4 text-right font-medium">${order.total.toFixed(2)}</td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {order.tracking && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Truck className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </td>
+          {!loading && !error && orders.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{filteredOrders.length} Orders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Order ID</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Customer</th>
+                        <th className="text-center py-3 px-4 font-medium text-muted-foreground">Items</th>
+                        <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total</th>
+                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
+                        <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                    </thead>
+                    <tbody>
+                      {filteredOrders.map((order) => (
+                        <tr key={order.id} className="border-b last:border-0 hover:bg-muted/50">
+                          <td className="py-3 px-4 font-mono text-sm font-medium">{order.id}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{order.date}</td>
+                          <td className="py-3 px-4">
+                            <div>
+                              <p className="font-medium">{order.customer}</p>
+                              <p className="text-sm text-muted-foreground">{order.email}</p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">{order.items}</td>
+                          <td className="py-3 px-4 text-right font-medium">${order.total?.toFixed(2)}</td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || statusColors.Pending}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {order.tracking && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Truck className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>

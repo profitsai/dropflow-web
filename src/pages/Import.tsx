@@ -5,30 +5,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Upload, Link as LinkIcon, Package, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
+import { importProduct } from "@/lib/api"
 
 export default function Import() {
   const [url, setUrl] = useState("")
   const [isImporting, setIsImporting] = useState(false)
-  const [importResult, setImportResult] = useState<"success" | "error" | null>(null)
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [recentImports, setRecentImports] = useState<Array<{
+    id: number;
+    name: string;
+    source: string;
+    status: string;
+    date: string;
+  }>>([])
 
   const handleImport = async () => {
     if (!url) return
     setIsImporting(true)
-    setImportResult(null)
+    setResult(null)
     
-    // Simulate import
-    setTimeout(() => {
+    try {
+      const response = await importProduct(url)
+      if (response.success && response.product) {
+        setResult({ success: true, message: `Successfully imported: ${response.product.name}` })
+        setRecentImports(prev => [{
+          id: Date.now(),
+          name: response.product!.name,
+          source: url.includes('amazon') ? 'Amazon' : 'AliExpress',
+          status: 'success',
+          date: 'Just now'
+        }, ...prev.slice(0, 4)])
+        setUrl("")
+      } else {
+        setResult({ success: false, message: response.error || 'Failed to import product' })
+      }
+    } catch (err) {
+      setResult({ success: false, message: err instanceof Error ? err.message : 'Import failed' })
+    } finally {
       setIsImporting(false)
-      setImportResult(Math.random() > 0.2 ? "success" : "error")
-    }, 2000)
+    }
   }
-
-  const recentImports = [
-    { id: 1, name: "Wireless Bluetooth Earbuds TWS", source: "Amazon", status: "success", date: "2 min ago" },
-    { id: 2, name: "Smart Fitness Tracker Band", source: "AliExpress", status: "success", date: "15 min ago" },
-    { id: 3, name: "Portable Power Bank 20000mAh", source: "Amazon", status: "error", date: "1 hour ago" },
-    { id: 4, name: "LED Ring Light with Tripod", source: "AliExpress", status: "success", date: "2 hours ago" },
-  ]
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,6 +82,7 @@ export default function Import() {
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         className="pl-10"
+                        onKeyDown={(e) => e.key === 'Enter' && handleImport()}
                       />
                     </div>
                     <Button 
@@ -88,23 +105,18 @@ export default function Import() {
                   </div>
                 </div>
 
-                {importResult && (
+                {result && (
                   <div className={`p-4 rounded-lg flex items-center gap-3 ${
-                    importResult === "success" 
+                    result.success 
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                       : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                   }`}>
-                    {importResult === "success" ? (
-                      <>
-                        <CheckCircle className="h-5 w-5" />
-                        <span>Product imported successfully! View it in your Products page.</span>
-                      </>
+                    {result.success ? (
+                      <CheckCircle className="h-5 w-5 flex-shrink-0" />
                     ) : (
-                      <>
-                        <AlertCircle className="h-5 w-5" />
-                        <span>Failed to import product. Please check the URL and try again.</span>
-                      </>
+                      <AlertCircle className="h-5 w-5 flex-shrink-0" />
                     )}
+                    <span>{result.message}</span>
                   </div>
                 )}
 
@@ -147,34 +159,36 @@ export default function Import() {
           </Card>
 
           {/* Recent Imports */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Imports</CardTitle>
-              <CardDescription>Your latest product imports</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentImports.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-                    <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center">
-                      <Package className="h-5 w-5 text-muted-foreground" />
+          {recentImports.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Imports</CardTitle>
+                <CardDescription>Your latest product imports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {recentImports.map((item) => (
+                    <div key={item.id} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+                      <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{item.name}</p>
+                        <p className="text-sm text-muted-foreground">{item.source} • {item.date}</p>
+                      </div>
+                      <div>
+                        {item.status === "success" ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-red-500" />
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">{item.source} • {item.date}</p>
-                    </div>
-                    <div>
-                      {item.status === "success" ? (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-red-500" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>
