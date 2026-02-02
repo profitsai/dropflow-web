@@ -3,6 +3,8 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+console.log('🚀 Starting DropFlow Express Server...');
+
 // Serve static files from dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
