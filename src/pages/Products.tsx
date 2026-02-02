@@ -3,11 +3,20 @@ import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Package, Search, Plus, Edit, Trash2, ExternalLink, Loader2 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Package, Search, Plus, Edit, Trash2, ExternalLink, Loader2, Filter } from "lucide-react"
 import { getProducts, type Product } from "@/lib/api"
 
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [sourceFilter, setSourceFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -29,10 +38,13 @@ export default function Products() {
     }
   }
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSource = sourceFilter === "all" || product.source === sourceFilter
+    const matchesStatus = statusFilter === "all" || product.status === statusFilter
+    return matchesSearch && matchesSource && matchesStatus
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -65,6 +77,27 @@ export default function Products() {
                     className="pl-10"
                   />
                 </div>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="Amazon">Amazon</SelectItem>
+                    <SelectItem value="AliExpress">AliExpress</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" onClick={loadProducts}>
                   Refresh
                 </Button>
@@ -143,10 +176,23 @@ export default function Products() {
                         <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                              {product.imageUrl || (product.imageUrls && product.imageUrls[0]) ? (
+                                <img
+                                  src={product.imageUrl || product.imageUrls[0]}
+                                  alt={product.name}
+                                  className="w-10 h-10 rounded-lg object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                    e.currentTarget.parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden')
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center fallback-icon ${product.imageUrl || (product.imageUrls && product.imageUrls[0]) ? 'hidden' : ''}`}>
                                 <Package className="h-5 w-5 text-muted-foreground" />
                               </div>
-                              <span className="font-medium">{product.name}</span>
+                              <div className="max-w-xs">
+                                <span className="font-medium line-clamp-2">{product.name}</span>
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 font-mono text-sm">{product.sku}</td>
