@@ -3,14 +3,7 @@ import { Navbar } from "@/components/Navbar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Package, Search, Plus, Edit, Trash2, ExternalLink, Loader2, Filter } from "lucide-react"
+import { Package, Search, Plus, Edit, Trash2, ExternalLink, Loader2 } from "lucide-react"
 import { getProducts, type Product } from "@/lib/api"
 
 export default function Products() {
@@ -77,27 +70,24 @@ export default function Products() {
                     className="pl-10"
                   />
                 </div>
-                <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Sources</SelectItem>
-                    <SelectItem value="Amazon">Amazon</SelectItem>
-                    <SelectItem value="AliExpress">AliExpress</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="all">All Sources</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="AliExpress">AliExpress</option>
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
                 <Button variant="outline" onClick={loadProducts}>
                   Refresh
                 </Button>
@@ -176,18 +166,19 @@ export default function Products() {
                         <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              {product.imageUrl || (product.imageUrls && product.imageUrls[0]) ? (
+                              {product.imageUrl ? (
                                 <img
-                                  src={product.imageUrl || product.imageUrls[0]}
+                                  src={product.imageUrl}
                                   alt={product.name}
                                   className="w-10 h-10 rounded-lg object-cover"
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none'
-                                    e.currentTarget.parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden')
+                                    const fallback = e.currentTarget.parentElement?.querySelector('.fallback-icon')
+                                    if (fallback) fallback.classList.remove('hidden')
                                   }}
                                 />
                               ) : null}
-                              <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center fallback-icon ${product.imageUrl || (product.imageUrls && product.imageUrls[0]) ? 'hidden' : ''}`}>
+                              <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center fallback-icon ${product.imageUrl ? 'hidden' : ''}`}>
                                 <Package className="h-5 w-5 text-muted-foreground" />
                               </div>
                               <div className="max-w-xs">
