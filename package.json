@@ -27,7 +27,6 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-query": "^5.90.20",
-    "@vitejs/plugin-react": "^4.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
@@ -36,8 +35,7 @@
     "react-router-dom": "^7.13.0",
     "serve": "^14.2.5",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0",
-    "vite": "^6.0.0"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
