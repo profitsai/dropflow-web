@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.1",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=20.0.0"
   },
   "type": "module",
   "scripts": {
@@ -14,7 +14,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -29,6 +28,7 @@
     "@tanstack/react-query": "^5.90.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "express": "^4.18.2",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -43,7 +43,7 @@
     "@types/node": "^24.10.9",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -51,6 +51,6 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^6.4.1"
   }
 }
